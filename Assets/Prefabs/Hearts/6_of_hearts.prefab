@@ -99,7 +99,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   card_value: 6
-  card_type: hearts
+  card_suit: hearts
 --- !u!61 &7499102006921434249
 BoxCollider2D:
   m_ObjectHideFlags: 0

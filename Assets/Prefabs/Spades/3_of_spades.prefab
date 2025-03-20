@@ -99,7 +99,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   card_value: 3
-  card_type: spades
+  card_suit: spades
 --- !u!61 &4279976193299008726
 BoxCollider2D:
   m_ObjectHideFlags: 0
