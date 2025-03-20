@@ -99,7 +99,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   card_value: 10
-  card_type: clubs
+  card_suit: clubs
 --- !u!61 &-4827368710685086020
 BoxCollider2D:
   m_ObjectHideFlags: 0
