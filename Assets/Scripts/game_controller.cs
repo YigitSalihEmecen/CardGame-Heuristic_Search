@@ -2,6 +2,8 @@ using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 using DG.Tweening;
+using UnityEngine.UI;
+using TMPro;
 
 public class game_controller : MonoBehaviour
 {
@@ -17,15 +19,24 @@ public class game_controller : MonoBehaviour
     public Transform middleOfScreen;
 
     public GameObject cardToDiscard;
+    public GameObject middleCard;
+    public GameObject restartButton; // Add reference to the restart button
 
     public float hand_spacing = 0.6f; // Spacing between cards
+    public float vertical_spacing = 1.0f; // Vertical spacing for 6 card game mode
 
     private bool isPlayerTurn = true; // Track whose turn it is
+    private bool isGameOver = false; // Flag to indicate if the game is over
+
+    public TextMeshProUGUI endGameText;
 
     void Start()
     {
-        DealHands(3); // Example: deal 3 cards to each hand
+        int numberOfCards = GameMode.NumberOfCards;
+        DealHands(numberOfCards); // Use the number of cards from the game mode
         StartPlayerTurn(); // Start with the player's turn
+
+        Debug.Log("Number of Cards: " + numberOfCards);
     }
 
     // Update is called once per frame
@@ -52,43 +63,52 @@ public class game_controller : MonoBehaviour
         // Deal cards to player and AI
         for (int i = 0; i < numberOfCards; i++)
         {
-            if (deck.Count > 0)
-            {
-                GameObject card = Instantiate(deck[0], middleOfScreen.position, Quaternion.identity);
-                player_hand.Add(card);
-                deck.RemoveAt(0);
-                card.transform.DOMove(player_hand_position.position, 1.0f).OnComplete(() => ArrangeHand(player_hand, player_hand_position)); // Move to player's hand and arrange
-                card.GetComponent<Card>().Initialize(this, player_hand); // Initialize the card with the game controller and hand
-            }
-            if (deck.Count > 0)
-            {
-                GameObject card = Instantiate(deck[0], middleOfScreen.position, Quaternion.identity);
-                AI_hand.Add(card);
-                deck.RemoveAt(0);
-                card.transform.DOMove(AI_hand_position.position, 1.0f).OnComplete(() => ArrangeHand(AI_hand, AI_hand_position)); // Move to AI's hand and arrange
-            }
+            DrawCard();
+            DrawCardForAI();
         }
     }
 
-    void ArrangeHand(List<GameObject> hand, Transform handPosition)
+    void ArrangeHand(List<GameObject> hand, Transform handPosition, int numberOfCards)
     {
-        float startX = handPosition.position.x - ((hand.Count - 1) * hand_spacing) / 2; // Calculate the starting X position
-
-        for (int i = 0; i < hand.Count; i++)
+        if (numberOfCards == 3)
         {
-            Vector3 targetPosition = new Vector3(
-                startX + (i * hand_spacing), // Calculate the X position for each card
-                handPosition.position.y, // Keep the Y position the same
-                handPosition.position.z // Keep the Z position the same
-            );
-            hand[i].transform.DOMove(targetPosition, 0.5f); // Animate the movement to the target position
-            hand[i].transform.DORotate(Vector3.zero, 0.5f); // Ensure the card rotation remains unchanged
+            float startX = handPosition.position.x - ((hand.Count - 1) * hand_spacing) / 2; // Calculate the starting X position
+
+            for (int i = 0; i < hand.Count; i++)
+            {
+                Vector3 targetPosition = new Vector3(
+                    startX + (i * hand_spacing), // Calculate the X position for each card
+                    handPosition.position.y, // Keep the Y position the same
+                    handPosition.position.z // Keep the Z position the same
+                );
+                hand[i].transform.DOMove(targetPosition, 0.5f); // Animate the movement to the target position
+                hand[i].transform.DORotate(Vector3.zero, 0.5f); // Ensure the card rotation remains unchanged
+            }
+        }
+        else if (numberOfCards == 6)
+        {
+            float startX = handPosition.position.x - hand_spacing; // Calculate the starting X position for 3 cards per row
+            float startY = handPosition.position.y + vertical_spacing / 2; // Starting Y position
+
+            for (int i = 0; i < hand.Count; i++)
+            {
+                int row = i / 3; // Determine the row (0 or 1)
+                int col = i % 3; // Determine the column (0, 1, or 2)
+
+                Vector3 targetPosition = new Vector3(
+                    startX + (col * hand_spacing), // Calculate the X position for each card
+                    startY - (row * vertical_spacing), // Calculate the Y position for each row
+                    handPosition.position.z // Keep the Z position the same
+                );
+                hand[i].transform.DOMove(targetPosition, 0.5f); // Animate the movement to the target position
+                hand[i].transform.DORotate(Vector3.zero, 0.5f); // Ensure the card rotation remains unchanged
+            }
         }
     }
 
     public void DiscardCard(GameObject card, List<GameObject> hand)
     {
-        if (!isPlayerTurn) return; // Prevent player from discarding during AI's turn
+        if (!isPlayerTurn || isGameOver) return; // Prevent player from discarding during AI's turn or if the game is over
 
         hand.Remove(card);
         discard_pile.Add(card);
@@ -106,11 +126,9 @@ public class game_controller : MonoBehaviour
                                     .OnComplete(() =>
                                     {
                                         DrawCard(); // Draw a new card
-                                        ArrangeHand(player_hand, player_hand_position); // Rearrange the player hand
+                                        ArrangeHand(player_hand, player_hand_position, GameMode.NumberOfCards); // Rearrange the player hand
                                         EndPlayerTurn(); // End the player's turn
-                                        CheckEndGameCondition(); // Check end game condition after discarding a card
                                     });
-                                    
                             });
                     });
             });
@@ -118,13 +136,17 @@ public class game_controller : MonoBehaviour
 
     public void DrawCard()
     {
-        if (deck.Count > 0)
+        if (deck.Count > 0 && !isGameOver)
         {
             GameObject card = Instantiate(deck[0], middleOfScreen.position, Quaternion.identity);
             player_hand.Add(card);
             deck.RemoveAt(0);
             card.GetComponent<Card>().Initialize(this, player_hand); // Initialize the card with the game controller and hand
-            CheckEndGameCondition(); // Check end game condition after drawing a card
+            ArrangeHand(player_hand, player_hand_position, GameMode.NumberOfCards); // Rearrange the player hand
+            if (player_hand.Count == GameMode.NumberOfCards)
+            {
+                EndGameCheck();
+            }
         }
         else
         {
@@ -134,18 +156,24 @@ public class game_controller : MonoBehaviour
 
     void StartPlayerTurn()
     {
+        if (isGameOver) return; // Prevent starting the player's turn if the game is over
+
         isPlayerTurn = true;
         Debug.Log("Player's turn");
     }
 
     void EndPlayerTurn()
     {
+        if (isGameOver) return; // Prevent ending the player's turn if the game is over
+
         isPlayerTurn = false;
         StartAITurn();
     }
 
     void StartAITurn()
     {
+        if (isGameOver) return; // Prevent starting the AI's turn if the game is over
+
         Debug.Log("AI's turn");
         // Implement AI logic here
         AIDiscardCard();
@@ -153,12 +181,13 @@ public class game_controller : MonoBehaviour
 
     void AIDiscardCard()
     {
+        if (isGameOver) return; // Prevent AI from discarding if the game is over
+
         // Implement AI logic to discard a card
         GameObject cardToDiscard = GetAICardToDiscard();
 
         if (cardToDiscard != null)
         {
-
             AI_hand.Remove(cardToDiscard);
             discard_pile.Add(cardToDiscard);
 
@@ -175,13 +204,17 @@ public class game_controller : MonoBehaviour
                                         .OnComplete(() =>
                                         {
                                             DrawCardForAI(); // Draw a new card for AI
-                                            ArrangeHand(AI_hand, AI_hand_position); // Rearrange the AI hand
+                                            ArrangeHand(AI_hand, AI_hand_position, GameMode.NumberOfCards); // Rearrange the AI hand
                                             EndAITurn(); // End the AI's turn
-                                            CheckEndGameCondition(); // Check end game condition after discarding a card
                                         });
                                 });
                         });
                 });
+        }
+        else
+        {
+            Debug.Log("AI has no card to discard");
+            EndAITurn(); // End AI's turn if no card to discard
         }
     }
 
@@ -189,13 +222,12 @@ public class game_controller : MonoBehaviour
     {
         cardToDiscard = null; // Default to the first card in hand
 
-        List<string> suits = new List<string>();
-        suits = new List<string> { "hearts", "diamonds", "clubs", "spades" };
+        List<string> suits = new List<string> { "hearts", "diamonds", "clubs", "spades" };
 
         foreach (string suit in suits)
         {
             List<GameObject> cardsInSuit = new List<GameObject>();
-            
+
             foreach (GameObject card in AI_hand)
             {
                 if (card.GetComponent<Card>().card_suit == suit)
@@ -210,17 +242,28 @@ public class game_controller : MonoBehaviour
                 break;
             }
         }
+
+        // If no single card found, discard the first card
+        if (cardToDiscard == null && AI_hand.Count > 0)
+        {
+            cardToDiscard = AI_hand[0];
+        }
+
         return cardToDiscard;
     }
 
     void DrawCardForAI()
     {
-        if (deck.Count > 0)
+        if (deck.Count > 0 && !isGameOver)
         {
             GameObject card = Instantiate(deck[0], middleOfScreen.position, Quaternion.identity);
             AI_hand.Add(card);
             deck.RemoveAt(0);
-            CheckEndGameCondition(); // Check end game condition after drawing a card
+            ArrangeHand(AI_hand, AI_hand_position, GameMode.NumberOfCards); // Rearrange the AI hand
+            if (AI_hand.Count == GameMode.NumberOfCards)
+            {
+                EndGameCheck();
+            }
         }
         else
         {
@@ -230,55 +273,88 @@ public class game_controller : MonoBehaviour
 
     void EndAITurn()
     {
+        if (isGameOver) return; // Prevent ending the AI's turn if the game is over
+
         Debug.Log("Ending AI's turn");
         StartPlayerTurn();
     }
 
-    void CheckEndGameCondition()
+    void EndGameCheck()
     {
-        if (HasThreeCardsOfSameSuit(player_hand))
+        if (deck.Count == 0)
         {
-            Debug.Log("Player wins!");
-            EndGame();
+            EndGameText(CalculatPoints(player_hand, AI_hand));
         }
-        else if (HasThreeCardsOfSameSuit(AI_hand))
+
+        if (AreAllCardsSameSuit(player_hand))
         {
-            Debug.Log("AI wins!");
-            EndGame();
+            EndGameText(true);
+        }
+        else if (AreAllCardsSameSuit(AI_hand))
+        {
+            EndGameText(false);
         }
     }
 
-    bool HasThreeCardsOfSameSuit(List<GameObject> hand)
+    bool AreAllCardsSameSuit(List<GameObject> hand)
     {
-        Dictionary<string, int> suitCount = new Dictionary<string, int>();
+        if (hand.Count == 0) return false;
+
+        string suit = hand[0].GetComponent<Card>().card_suit;
 
         foreach (GameObject card in hand)
         {
-            string suit = card.GetComponent<Card>().card_suit;
-            if (suitCount.ContainsKey(suit))
+            if (card.GetComponent<Card>().card_suit != suit)
             {
-                suitCount[suit]++;
-            }
-            else
-            {
-                suitCount[suit] = 1;
-            }
-
-            if (suitCount[suit] >= 3)
-            {
-                return true;
+                return false;
             }
         }
 
-        return false;
+        return true;
     }
 
-    void EndGame()
+    bool CalculatPoints(List<GameObject> player_hand, List<GameObject> AI_hand)
     {
-        // Implement end game logic here, such as stopping the game, showing a message, etc.
-        Debug.Log("Game Over");
-        // Example: Disable player and AI actions
-        isPlayerTurn = false;
-        // Additional end game logic can be added here
+        int playerPoints = 0;
+        int aiPoints = 0;
+
+        foreach (GameObject card in player_hand)
+        {
+            playerPoints += card.GetComponent<Card>().card_value;
+        }
+
+        foreach (GameObject card in AI_hand)
+        {
+            aiPoints += card.GetComponent<Card>().card_value;
+        }
+
+        return playerPoints < aiPoints;
+    }
+
+    void EndGameText(bool playerWon)
+    {
+        if (playerWon)
+        {
+            endGameText.text = "Player wins!";
+        }
+        else
+        {
+            endGameText.text = "AI wins!";
+        }
+
+        HandleEndGameState();
+    }
+
+    void HandleEndGameState()
+    {
+        // Slide the middleCard to the right, outside of the main camera
+        middleCard.transform.DOMoveX(middleCard.transform.position.x + 10, 1.0f);
+
+        // Slide the restartButton and endGameText from the left to the main camera
+        restartButton.transform.DOMoveX(middleCard.transform.position.x, 1.0f);
+        endGameText.transform.DOMoveX(middleCard.transform.position.x, 1.0f);
+
+        // Set the game over flag to true
+        isGameOver = true;
     }
 }
