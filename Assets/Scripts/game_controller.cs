@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using UnityEngine;
 using DG.Tweening;
 using UnityEngine.UI;
+using UnityEngine.SceneManagement;
 using TMPro;
 
 public class game_controller : MonoBehaviour
@@ -356,5 +357,11 @@ public class game_controller : MonoBehaviour
 
         // Set the game over flag to true
         isGameOver = true;
+    }
+
+    public void RestartGame()
+    {
+        // Reload the current scene
+        SceneManager.LoadScene(1);
     }
 }
