@@ -33,6 +33,8 @@ public class game_controller : MonoBehaviour
 
     void Start()
     {
+        Application.targetFrameRate = 120; // Set the target frame rate to 120
+
         int numberOfCards = GameMode.NumberOfCards;
         DealHands(numberOfCards); // Use the number of cards from the game mode
         StartPlayerTurn(); // Start with the player's turn
@@ -351,9 +353,12 @@ public class game_controller : MonoBehaviour
         // Slide the middleCard to the right, outside of the main camera
         middleCard.transform.DOMoveX(middleCard.transform.position.x + 10, 1.0f);
 
-        // Slide the restartButton and endGameText from the left to the main camera
-        restartButton.transform.DOMoveX(middleCard.transform.position.x, 1.0f);
-        endGameText.transform.DOMoveX(middleCard.transform.position.x, 1.0f);
+        // Get the screen width to calculate the center position
+        float screenWidth = Screen.width;
+
+        // Move the restartButton and endGameText to the center of the screen
+        restartButton.GetComponent<RectTransform>().DOMoveX(screenWidth / 2, 1.0f);
+        endGameText.GetComponent<RectTransform>().DOMoveX(screenWidth / 2, 1.0f);
 
         // Set the game over flag to true
         isGameOver = true;
@@ -362,6 +367,6 @@ public class game_controller : MonoBehaviour
     public void RestartGame()
     {
         // Reload the current scene
-        SceneManager.LoadScene(1);
+        SceneManager.LoadScene(0);
     }
 }
