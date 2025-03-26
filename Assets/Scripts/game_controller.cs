@@ -23,13 +23,17 @@ public class game_controller : MonoBehaviour
     public GameObject middleCard;
     public GameObject restartButton; // Add reference to the restart button
 
+
+
     public float hand_spacing = 0.6f; // Spacing between cards
     public float vertical_spacing = 1.0f; // Vertical spacing for 6 card game mode
 
     private bool isPlayerTurn = true; // Track whose turn it is
     private bool isGameOver = false; // Flag to indicate if the game is over
+    private bool isDiscardInProgress = false; // Add this flag to track if a discard is in progress
 
     public TextMeshProUGUI endGameText;
+    public TextMeshProUGUI deckCountText; // Add reference to the deck count text
 
     void Start()
     {
@@ -45,7 +49,7 @@ public class game_controller : MonoBehaviour
     // Update is called once per frame
     void Update()
     {
-        
+            deckCountText.text = deck.Count.ToString(); // Update the deck count text
     }
 
     void DealHands(int numberOfCards)
@@ -111,7 +115,11 @@ public class game_controller : MonoBehaviour
 
     public void DiscardCard(GameObject card, List<GameObject> hand)
     {
-        if (!isPlayerTurn || isGameOver) return; // Prevent player from discarding during AI's turn or if the game is over
+        // Check if already discarding or not player's turn or game is over
+        if (isDiscardInProgress || !isPlayerTurn || isGameOver) return;
+
+        // Set the flag to true to prevent multiple discards
+        isDiscardInProgress = true;
 
         hand.Remove(card);
         discard_pile.Add(card);
@@ -131,6 +139,9 @@ public class game_controller : MonoBehaviour
                                         DrawCard(); // Draw a new card
                                         ArrangeHand(player_hand, player_hand_position, GameMode.NumberOfCards); // Rearrange the player hand
                                         EndPlayerTurn(); // End the player's turn
+                                        
+                                        // Reset the flag when the discard sequence is complete
+                                        isDiscardInProgress = false;
                                     });
                             });
                     });
@@ -179,12 +190,24 @@ public class game_controller : MonoBehaviour
 
         Debug.Log("AI's turn");
         // Implement AI logic here
+        
+        // Add a small delay before AI's action to make it feel more natural
+        StartCoroutine(AIDiscardWithDelay());
+    }
+
+    IEnumerator AIDiscardWithDelay()
+    {
+        // Small delay before AI makes its move
+        yield return new WaitForSeconds(0.5f);
         AIDiscardCard();
     }
 
     void AIDiscardCard()
     {
-        if (isGameOver) return; // Prevent AI from discarding if the game is over
+        if (isGameOver || isDiscardInProgress) return; // Prevent AI from discarding if the game is over or a discard is in progress
+
+        // Set the flag to true to prevent multiple discards
+        isDiscardInProgress = true;
 
         // Implement AI logic to discard a card
         GameObject cardToDiscard = GetAICardToDiscard();
@@ -209,6 +232,9 @@ public class game_controller : MonoBehaviour
                                             DrawCardForAI(); // Draw a new card for AI
                                             ArrangeHand(AI_hand, AI_hand_position, GameMode.NumberOfCards); // Rearrange the AI hand
                                             EndAITurn(); // End the AI's turn
+                                            
+                                            // Reset the flag when the discard sequence is complete
+                                            isDiscardInProgress = false;
                                         });
                                 });
                         });
@@ -217,43 +243,66 @@ public class game_controller : MonoBehaviour
         else
         {
             Debug.Log("AI has no card to discard");
+            // Reset the flag even if no card is discarded
+            isDiscardInProgress = false;
             EndAITurn(); // End AI's turn if no card to discard
         }
     }
 
     GameObject GetAICardToDiscard()
     {
-        cardToDiscard = null; // Default to the first card in hand
+        if (AI_hand.Count == 0) return null;
 
-        List<string> suits = new List<string> { "hearts", "diamonds", "clubs", "spades" };
+        // Count cards of each suit
+        Dictionary<string, List<GameObject>> suitCounts = new Dictionary<string, List<GameObject>>();
+        suitCounts["hearts"] = new List<GameObject>();
+        suitCounts["diamonds"] = new List<GameObject>();
+        suitCounts["clubs"] = new List<GameObject>();
+        suitCounts["spades"] = new List<GameObject>();
 
-        foreach (string suit in suits)
+        // Categorize each card by suit
+        foreach (GameObject card in AI_hand)
         {
-            List<GameObject> cardsInSuit = new List<GameObject>();
+            string suit = card.GetComponent<Card>().card_suit;
+            suitCounts[suit].Add(card);
+            
+            // Debug log to see what suits are being found
+            Debug.Log("Card: " + card.name + " with suit: " + suit);
+        }
 
-            foreach (GameObject card in AI_hand)
-            {
-                if (card.GetComponent<Card>().card_suit == suit)
-                {
-                    cardsInSuit.Add(card);
-                }
-            }
+        // Find the suit with the least number of cards (but at least 1)
+        string leastSuit = "";
+        int minCount = int.MaxValue;
 
-            if (cardsInSuit.Count == 1)
+        // Debug log to check the counts of each suit
+        foreach (var suitPair in suitCounts)
+        {
+            Debug.Log("Suit: " + suitPair.Key + " has " + suitPair.Value.Count + " cards");
+            
+            if (suitPair.Value.Count > 0 && suitPair.Value.Count < minCount)
             {
-                cardToDiscard = cardsInSuit[0];
-                break;
+                minCount = suitPair.Value.Count;
+                leastSuit = suitPair.Key;
+                Debug.Log("New least suit: " + leastSuit + " with " + minCount + " cards");
             }
         }
 
-        // If no single card found, discard the first card
-        if (cardToDiscard == null && AI_hand.Count > 0)
+        // Debug log the final decision
+        Debug.Log("Final least suit: " + leastSuit + " with " + (string.IsNullOrEmpty(leastSuit) ? "0" : suitCounts[leastSuit].Count.ToString()) + " cards");
+
+        // If we found a suit with the least cards, discard the first card of that suit
+        if (!string.IsNullOrEmpty(leastSuit) && suitCounts[leastSuit].Count > 0)
         {
-            cardToDiscard = AI_hand[0];
+            Debug.Log("Discarding card from least suit: " + leastSuit);
+            return suitCounts[leastSuit][0];
         }
 
-        return cardToDiscard;
+        // Fallback: just return the first card in the hand
+        Debug.Log("Using fallback - discarding first card in hand");
+        return AI_hand[0];
     }
+
+    // Helper methods
 
     void DrawCardForAI()
     {
