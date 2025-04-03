@@ -409,6 +409,7 @@ public class game_controller : MonoBehaviour
         restartButton.GetComponent<RectTransform>().DOMoveX(screenWidth / 2, 1.0f);
         endGameText.GetComponent<RectTransform>().DOMoveX(screenWidth / 2, 1.0f);
 
+        deckCountText.gameObject.SetActive(false); // Hide the deck count text
         // Set the game over flag to true
         isGameOver = true;
     }
