@@ -1,3 +1,4 @@
+// filepath: /Users/yigitsalihemecen/CardGame_Heuristic/Assets/Scripts/game_controller.cs
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
@@ -8,33 +9,35 @@ using TMPro;
 
 public class game_controller : MonoBehaviour
 {
+    // === Card Collections ===
     public List<GameObject> deck;
     public List<GameObject> discard_pile;
     public List<GameObject> player_hand;
     public List<GameObject> AI_hand;
 
+    // === Positions and References ===
     public Transform player_hand_position;
     public Transform AI_hand_position;
     public Transform discard_position;
-
     public Transform middleOfScreen;
-
     public GameObject cardToDiscard;
     public GameObject middleCard;
-    public GameObject restartButton; // Add reference to the restart button
+    public GameObject restartButton;
 
+    // === UI Elements ===
+    public TextMeshProUGUI endGameText;
+    public TextMeshProUGUI deckCountText;
 
-
-    public float hand_spacing = 0.6f; // Spacing between cards
+    // === Game Settings ===
+    public float hand_spacing = 0.6f;     // Spacing between cards
     public float vertical_spacing = 1.0f; // Vertical spacing for 6 card game mode
 
-    private bool isPlayerTurn = true; // Track whose turn it is
-    private bool isGameOver = false; // Flag to indicate if the game is over
-    private bool isDiscardInProgress = false; // Add this flag to track if a discard is in progress
+    // === Game State ===
+    private bool isPlayerTurn = true;       // Track whose turn it is
+    private bool isGameOver = false;        // Flag to indicate if the game is over
+    private bool isDiscardInProgress = false; // Flag to track if a discard is in progress
 
-    public TextMeshProUGUI endGameText;
-    public TextMeshProUGUI deckCountText; // Add reference to the deck count text
-
+    // === Unity Lifecycle Methods ===
     void Start()
     {
         Application.targetFrameRate = 120; // Set the target frame rate to 120
@@ -49,9 +52,10 @@ public class game_controller : MonoBehaviour
     // Update is called once per frame
     void Update()
     {
-            deckCountText.text = deck.Count.ToString(); // Update the deck count text
+        deckCountText.text = deck.Count.ToString(); // Update the deck count text
     }
 
+    // === Game Setup Methods ===
     void DealHands(int numberOfCards)
     {
         // Shuffle the deck
@@ -75,6 +79,7 @@ public class game_controller : MonoBehaviour
         }
     }
 
+    // === Card Layout Methods ===
     void ArrangeHand(List<GameObject> hand, Transform handPosition, int numberOfCards)
     {
         if (numberOfCards == 3)
@@ -113,6 +118,7 @@ public class game_controller : MonoBehaviour
         }
     }
 
+    // === Card Action Methods ===
     public void DiscardCard(GameObject card, List<GameObject> hand)
     {
         // Check if already discarding or not player's turn or game is over
@@ -168,6 +174,26 @@ public class game_controller : MonoBehaviour
         }
     }
 
+    void DrawCardForAI()
+    {
+        if (deck.Count > 0 && !isGameOver)
+        {
+            GameObject card = Instantiate(deck[0], middleOfScreen.position, Quaternion.identity);
+            AI_hand.Add(card);
+            deck.RemoveAt(0);
+            ArrangeHand(AI_hand, AI_hand_position, GameMode.NumberOfCards); // Rearrange the AI hand
+            if (AI_hand.Count == GameMode.NumberOfCards)
+            {
+                EndGameCheck();
+            }
+        }
+        else
+        {
+            Debug.Log("Deck is empty, AI cannot draw a card");
+        }
+    }
+
+    // === Turn Management Methods ===
     void StartPlayerTurn()
     {
         if (isGameOver) return; // Prevent starting the player's turn if the game is over
@@ -202,6 +228,15 @@ public class game_controller : MonoBehaviour
         AIDiscardCard();
     }
 
+    void EndAITurn()
+    {
+        if (isGameOver) return; // Prevent ending the AI's turn if the game is over
+
+        Debug.Log("Ending AI's turn");
+        StartPlayerTurn();
+    }
+
+    // === AI Strategy Methods ===
     void AIDiscardCard()
     {
         if (isGameOver || isDiscardInProgress) return; // Prevent AI from discarding if the game is over or a discard is in progress
@@ -253,89 +288,127 @@ public class game_controller : MonoBehaviour
     {
         if (AI_hand.Count == 0) return null;
 
-        // Count cards of each suit
-        Dictionary<string, List<GameObject>> suitCounts = new Dictionary<string, List<GameObject>>();
-        suitCounts["hearts"] = new List<GameObject>();
-        suitCounts["diamonds"] = new List<GameObject>();
-        suitCounts["clubs"] = new List<GameObject>();
-        suitCounts["spades"] = new List<GameObject>();
+        // Count cards of each suit in the AI's hand
+        Dictionary<string, List<GameObject>> handSuitCounts = new Dictionary<string, List<GameObject>>();
+        handSuitCounts["hearts"] = new List<GameObject>();
+        handSuitCounts["diamonds"] = new List<GameObject>();
+        handSuitCounts["clubs"] = new List<GameObject>();
+        handSuitCounts["spades"] = new List<GameObject>();
 
-        // Categorize each card by suit
+        // Count cards of each suit in the discard pile
+        Dictionary<string, int> discardSuitCounts = new Dictionary<string, int>();
+        discardSuitCounts["hearts"] = 0;
+        discardSuitCounts["diamonds"] = 0;
+        discardSuitCounts["clubs"] = 0;
+        discardSuitCounts["spades"] = 0;
+
+        // Categorize AI's hand by suit
         foreach (GameObject card in AI_hand)
         {
             string suit = card.GetComponent<Card>().card_suit;
-            suitCounts[suit].Add(card);
-            
-            // Debug log to see what suits are being found
-            Debug.Log("Card: " + card.name + " with suit: " + suit);
+            handSuitCounts[suit].Add(card);
+            Debug.Log("AI Hand - Card: " + card.name + " with suit: " + suit);
         }
 
-        // Find the suit with the least number of cards (but at least 1)
+        // Count suits in the discard pile
+        foreach (GameObject card in discard_pile)
+        {
+            string suit = card.GetComponent<Card>().card_suit;
+            discardSuitCounts[suit]++;
+            Debug.Log("Discard pile - Card with suit: " + suit);
+        }
+
+        // Calculate potential for each suit based on how many are in the discard pile
+        // We'll calculate a score for each suit where:
+        // Higher score = better to keep (fewer cards in discard pile = more likely to get this suit)
+        Dictionary<string, float> suitPotential = new Dictionary<string, float>();
+
+        foreach (var suit in handSuitCounts.Keys)
+        {
+            // Skip suits that aren't in our hand
+            if (handSuitCounts[suit].Count == 0) continue;
+
+            // Calculate a score based on how many cards of this suit are NOT discarded
+            // Lower number of discards = higher potential
+            int totalCardsOfSuitDiscarded = discardSuitCounts[suit];
+            
+            // Normalize to a 0-1 score (0 = worst, 1 = best)
+            // We invert the logic because suits with more discards should have lower potential
+            float potential;
+            
+            // If all 13 cards of a suit are in discard, potential is 0
+            // If no cards are discarded, potential is 1
+            if (totalCardsOfSuitDiscarded > 0)
+            {
+                // More discards = lower potential
+                potential = 1.0f - (totalCardsOfSuitDiscarded / 13.0f);
+            }
+            else
+            {
+                // No discards = highest potential
+                potential = 1.0f;
+            }
+            
+            // Adjust potential based on how many cards of this suit we have
+            // More cards in hand = better potential
+            potential *= handSuitCounts[suit].Count;
+            
+            suitPotential[suit] = potential;
+            Debug.Log("Suit: " + suit + " has " + handSuitCounts[suit].Count + " cards in hand, " +
+                      totalCardsOfSuitDiscarded + " cards in discard, potential score: " + potential);
+        }
+
+        // Find the suit with the lowest potential (worst suit to keep)
+        string worstSuit = "";
+        float worstPotential = float.MaxValue;
+
+        foreach (var suitPair in suitPotential)
+        {
+            if (suitPair.Value < worstPotential && handSuitCounts[suitPair.Key].Count > 0)
+            {
+                worstPotential = suitPair.Value;
+                worstSuit = suitPair.Key;
+                Debug.Log("New worst suit to keep: " + worstSuit + " with potential: " + worstPotential);
+            }
+        }
+
+        // If we found the worst suit to keep, discard a card of that suit
+        if (!string.IsNullOrEmpty(worstSuit) && handSuitCounts[worstSuit].Count > 0)
+        {
+            Debug.Log("AI Strategy: Discarding card from worst potential suit: " + worstSuit);
+            return handSuitCounts[worstSuit][0];
+        }
+
+        // Fallback to the old strategy: find the suit with least cards in hand
         string leastSuit = "";
         int minCount = int.MaxValue;
 
-        // Debug log to check the counts of each suit
-        foreach (var suitPair in suitCounts)
+        foreach (var suitPair in handSuitCounts)
         {
-            Debug.Log("Suit: " + suitPair.Key + " has " + suitPair.Value.Count + " cards");
-            
             if (suitPair.Value.Count > 0 && suitPair.Value.Count < minCount)
             {
                 minCount = suitPair.Value.Count;
                 leastSuit = suitPair.Key;
-                Debug.Log("New least suit: " + leastSuit + " with " + minCount + " cards");
             }
         }
 
-        // Debug log the final decision
-        Debug.Log("Final least suit: " + leastSuit + " with " + (string.IsNullOrEmpty(leastSuit) ? "0" : suitCounts[leastSuit].Count.ToString()) + " cards");
-
-        // If we found a suit with the least cards, discard the first card of that suit
-        if (!string.IsNullOrEmpty(leastSuit) && suitCounts[leastSuit].Count > 0)
+        if (!string.IsNullOrEmpty(leastSuit) && handSuitCounts[leastSuit].Count > 0)
         {
-            Debug.Log("Discarding card from least suit: " + leastSuit);
-            return suitCounts[leastSuit][0];
+            Debug.Log("Fallback to least cards strategy: Discarding from least suit: " + leastSuit);
+            return handSuitCounts[leastSuit][0];
         }
 
-        // Fallback: just return the first card in the hand
-        Debug.Log("Using fallback - discarding first card in hand");
+        // Ultimate fallback: just return the first card in the hand
+        Debug.Log("Using ultimate fallback - discarding first card in hand");
         return AI_hand[0];
     }
 
-    // Helper methods
-
-    void DrawCardForAI()
-    {
-        if (deck.Count > 0 && !isGameOver)
-        {
-            GameObject card = Instantiate(deck[0], middleOfScreen.position, Quaternion.identity);
-            AI_hand.Add(card);
-            deck.RemoveAt(0);
-            ArrangeHand(AI_hand, AI_hand_position, GameMode.NumberOfCards); // Rearrange the AI hand
-            if (AI_hand.Count == GameMode.NumberOfCards)
-            {
-                EndGameCheck();
-            }
-        }
-        else
-        {
-            Debug.Log("Deck is empty, AI cannot draw a card");
-        }
-    }
-
-    void EndAITurn()
-    {
-        if (isGameOver) return; // Prevent ending the AI's turn if the game is over
-
-        Debug.Log("Ending AI's turn");
-        StartPlayerTurn();
-    }
-
+    // === Game State Methods ===
     void EndGameCheck()
     {
         if (deck.Count == 0)
         {
-            EndGameText(CalculatPoints(player_hand, AI_hand));
+            EndGameText(CalculatePoints(player_hand, AI_hand));
         }
 
         if (AreAllCardsSameSuit(player_hand))
@@ -365,7 +438,7 @@ public class game_controller : MonoBehaviour
         return true;
     }
 
-    bool CalculatPoints(List<GameObject> player_hand, List<GameObject> AI_hand)
+    bool CalculatePoints(List<GameObject> player_hand, List<GameObject> AI_hand)
     {
         int playerPoints = 0;
         int aiPoints = 0;
