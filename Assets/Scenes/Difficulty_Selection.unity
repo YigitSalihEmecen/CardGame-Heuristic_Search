@@ -343,8 +343,8 @@ MonoBehaviour:
       m_Calls:
       - m_Target: {fileID: 1130286919}
         m_TargetAssemblyTypeName: Level_Loader, Assembly-CSharp
-        m_MethodName: LoadScene0
-        m_Mode: 3
+        m_MethodName: LoadScene1
+        m_Mode: 1
         m_Arguments:
           m_ObjectArgument: {fileID: 0}
           m_ObjectArgumentAssemblyTypeName: UnityEngine.Object, UnityEngine
@@ -373,7 +373,7 @@ MonoBehaviour:
   m_OnCullStateChanged:
     m_PersistentCalls:
       m_Calls: []
-  m_Sprite: {fileID: 21300000, guid: a45e3d2eb19704443945b69e5cd011fd, type: 3}
+  m_Sprite: {fileID: 21300000, guid: 4c750da87d4e34233ac7b6a2396088f6, type: 3}
   m_Type: 0
   m_PreserveAspect: 0
   m_FillCenter: 1
@@ -470,7 +470,7 @@ RectTransform:
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0.5, y: 0.5}
   m_AnchorMax: {x: 0.5, y: 0.5}
-  m_AnchoredPosition: {x: -3, y: -442}
+  m_AnchoredPosition: {x: -3, y: -431}
   m_SizeDelta: {x: 165.19, y: 99.49}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!114 &1306759044
@@ -549,7 +549,7 @@ MonoBehaviour:
   m_OnCullStateChanged:
     m_PersistentCalls:
       m_Calls: []
-  m_Sprite: {fileID: 21300000, guid: 307c41192ac2a4bc5b6dc9e0eeebe79b, type: 3}
+  m_Sprite: {fileID: 21300000, guid: ca50ce4adf0f642bfa4a0d78d412e198, type: 3}
   m_Type: 0
   m_PreserveAspect: 0
   m_FillCenter: 1
