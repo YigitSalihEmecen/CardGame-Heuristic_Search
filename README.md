@@ -1,79 +1,181 @@
-# Card Game - Suit Collection
+# Heuristic Search in Card Games: An AI Implementation Study
 
-A strategic card game built in Unity where players and AI opponents take turns drawing and discarding cards with the goal of collecting cards of the same suit.
+**Course:** Artificial Intelligence  
+**Student:** Yigit Salih Emecen  
+**Topic:** Heuristic Search Card Game  
+**Date:** May 29, 2025  
 
-## Game Overview
+## Abstract
 
-In this card game, players compete against an AI opponent to be the first to collect a hand entirely of the same suit. The game features two modes: 3-card mode or 6-card mode, providing different levels of complexity and strategy.
+This project explores the implementation of heuristic search algorithms in a competitive card game environment. The developed Unity-based card game features an AI opponent that uses sophisticated heuristic evaluation functions to make strategic decisions. The game challenges players to collect cards of the same suit while competing against an AI that analyzes game state, evaluates potential moves, and employs multiple fallback strategies to optimize its gameplay.
 
-## How to Play
+## 1. Introduction
 
-### Objective
-- Be the first to collect all cards of the same suit in your hand.
-- If the deck runs out before anyone achieves this, the player with the lowest total card value wins.
+For this AI course assignment, I decided to implement a heuristic search algorithm in the context of a card game. The project demonstrates how AI can be applied to decision-making in competitive scenarios where incomplete information and strategic thinking are crucial. The game I created is essentially a suit-collection card game where both human players and AI opponents try to gather all cards of the same suit before their opponent does.
 
-### Game Modes
-- **3-Card Mode**: Each player holds 3 cards arranged in a single row.
-- **6-Card Mode**: Each player holds 6 cards arranged in a 3×2 grid.
+The main motivation behind choosing this topic was to understand how heuristic functions can guide AI decision-making in environments where:
+- There are multiple possible actions at each turn
+- The optimal choice depends on both current state and future possibilities
+- Uncertainty exists due to hidden information (opponent's hand and remaining deck)
 
-### Game Flow
-1. At the start of the game, each player is dealt their initial hand (3 or 6 cards depending on the selected mode).
-2. Players take turns to:
-   - Discard one card from their hand to the discard pile
-   - Draw a new card from the deck
-3. The game continues until one player collects all cards of the same suit or the deck runs out.
+## 2. Game Design and Rules
 
-## Strategic Elements
+### 2.1 Basic Mechanics
+The game follows these simple but strategic rules:
+- **Objective**: Be the first to collect all cards of the same suit
+- **Game Modes**: 3-card mode (easier) or 6-card mode (more complex)
+- **Turn Structure**: Discard one card → Draw one card → Switch turns
+- **Win Conditions**: 
+  - Primary: All cards in hand are the same suit
+  - Secondary: If deck runs out, player with lowest total card value wins
 
-### Player Strategy
-- Monitor your hand for suits that are appearing more frequently
-- Consider which suits are being discarded by the AI
-- Try to collect cards of a single suit while discarding cards of other suits
+### 2.2 Strategic Elements
+What makes this game interesting from an AI perspective is that every decision has long-term consequences. When the AI discards a card, it's not just getting rid of something unwanted—it's also giving information to the opponent and potentially helping them complete their suit. This creates a fascinating decision-making problem that's perfect for heuristic approaches.
 
-### AI Strategy
-The AI uses a sophisticated decision-making process:
+## 3. AI Implementation: Heuristic Search Algorithm
 
-1. **Suit Analysis**: The AI evaluates both its hand and the discard pile to understand suit distribution.
-2. **Potential Calculation**: For each suit in its hand, the AI calculates a "potential score" based on:
-   - How many cards of that suit it already holds
-   - How many cards of that suit have been discarded (fewer discards = higher potential)
-3. **Decision Making**: 
-   - Primary strategy: Discard cards from the suit with the lowest potential score
-   - Fallback strategy: Discard from the suit with the fewest cards in hand
-   - Ultimate fallback: Discard the first card in hand
+### 3.1 Problem Formulation
+From an AI perspective, each turn presents a search problem:
+- **State**: Current hand configuration, visible discard pile, known information
+- **Actions**: Which card to discard from the current hand
+- **Goal**: Reach a state where all cards are the same suit
+- **Heuristic**: Evaluation function that estimates the "potential" of each suit
 
-## Technical Implementation
+### 3.2 The Heuristic Function
+The core of my AI implementation is a multi-factor heuristic that evaluates each suit's potential:
 
-### Key Features
-- **Animated Card Movements**: Smooth transitions using DOTween for card movements and transforms
-- **Dynamic Card Layouts**: Automatically arranges cards based on the selected game mode
-- **Robust Turn Management**: Prevents action during animations and maintains proper game flow
-- **Win Condition Detection**: Continuously checks for winning conditions after each card draw
-- **UI Animations**: Animated transitions for end game messages and restart options
+```
+Potential Score = Base Potential × Hand Count Factor
 
-### Code Architecture
-- **Game Controller**: Manages game flow, card actions, and win conditions
-- **GameMode**: Static class that maintains game settings across scenes
-- **Level Loader**: Handles scene transitions and game mode selection
-- **Card**: Individual card behavior and interaction
+Where:
+Base Potential = 1.0 - (Cards Discarded / 13)
+Hand Count Factor = Number of cards of this suit in AI's hand
+```
 
-## Development
-The game was developed in Unity with C# and features:
-- Clean, well-organized code with logical grouping of related functions
-- Extensive error prevention with state flags and condition checks
-- Visually appealing card animations and transitions
-- Intelligent AI opponent with multiple fallback strategies
+This heuristic considers:
+1. **Scarcity**: Suits with fewer discarded cards have higher potential (more cards still available)
+2. **Current Investment**: Suits with more cards already in hand get priority
+3. **Opponent Information**: By tracking the discard pile, the AI can infer which suits are less likely to be completed
 
-## Installation and Setup
+### 3.3 Decision-Making Strategy
+The AI uses a hierarchical approach:
+
+1. **Primary Strategy**: Calculate potential scores for all suits and discard from the suit with the lowest potential
+2. **Fallback Strategy**: If potential scores are equal, discard from the suit with the fewest cards in hand
+3. **Ultimate Fallback**: In edge cases, simply discard the first card
+
+This approach ensures the AI always has a valid move while trying to optimize for the best possible outcome.
+
+### 3.4 Search Space Considerations
+While this might seem like a simple greedy algorithm, it's actually performing a form of heuristic search:
+- It evaluates multiple possible actions (discarding different cards)
+- It uses domain knowledge (suit distribution) to guide decisions
+- It considers both immediate and future implications of each choice
+
+## 4. Technical Implementation
+
+### 4.1 Code Architecture
+The project is structured around several key components:
+
+- **Game Controller**: Manages overall game flow, turn management, and win condition checking
+- **AI Strategy Methods**: Implements the heuristic evaluation and decision-making logic
+- **Card Action Methods**: Handles card movements, animations, and game state updates
+- **GameMode System**: Allows dynamic switching between 3-card and 6-card modes
+
+### 4.2 Key Features Implemented
+- **Smooth Animations**: Used DOTween for polished card movements and transitions
+- **Robust State Management**: Prevents illegal moves and handles edge cases
+- **Dynamic Layout System**: Automatically arranges cards based on game mode
+- **Comprehensive Logging**: Detailed debug output to understand AI decision-making process
+
+### 4.3 Technical Challenges and Solutions
+
+**Challenge 1: Preventing Multiple Actions**
+*Problem*: Players could click multiple cards during animations, causing game state issues
+*Solution*: Implemented state flags (`isDiscardInProgress`, `isGameOver`) to prevent concurrent actions
+
+**Challenge 2: Dynamic Card Layout**
+*Problem*: Different game modes required different card arrangements
+*Solution*: Created flexible layout system that calculates positions based on card count and spacing parameters
+
+**Challenge 3: AI Decision Consistency**
+*Problem*: AI needed to make reasonable decisions even with incomplete information
+*Solution*: Implemented multiple fallback strategies to ensure AI always has a valid, logical move
+
+## 5. Results and Observations
+
+### 5.1 AI Performance
+Through testing, I observed that the AI:
+- Successfully avoids discarding cards from suits it's actively collecting
+- Adapts its strategy based on what's been discarded
+- Makes reasonable decisions even in complex 6-card scenarios
+- Provides a challenging but fair opponent for human players
+
+### 5.2 Heuristic Effectiveness
+The potential-based heuristic proved effective because:
+- It balances current hand state with future possibilities
+- It incorporates observable information (discard pile) to make informed decisions
+- It provides clear prioritization even when choices seem equivalent
+
+### 5.3 Learning Outcomes
+This project helped me understand:
+- How heuristic functions can encode domain knowledge
+- The importance of handling edge cases in AI systems
+- How to balance computational efficiency with decision quality
+- The challenges of implementing AI in real-time interactive systems
+
+## 6. Reflections and Future Improvements
+
+### 6.1 What Worked Well
+- The hierarchical decision-making approach proved robust and reliable
+- The potential-based scoring system created believable AI behavior
+- Clean code organization made the system easy to debug and extend
+
+### 6.2 Areas for Improvement
+If I were to continue this project, I would consider:
+- **Opponent Modeling**: Track player's discarding patterns to predict their strategy
+- **Lookahead Search**: Implement minimax or similar algorithms to consider multiple moves ahead
+- **Machine Learning Integration**: Use reinforcement learning to improve the heuristic over time
+- **More Complex Scenarios**: Add special cards or rule variations to increase strategic depth
+
+### 6.3 Academic Connection
+This project connected several concepts from our AI course:
+- **Search Algorithms**: While not implementing traditional search trees, the AI evaluates multiple options and selects the best one
+- **Heuristic Design**: The potential scoring function encodes domain knowledge to guide decision-making
+- **State Space**: Each game configuration represents a state, with actions leading to new states
+- **Optimization**: The AI attempts to maximize its chances of winning through strategic card selection
+
+## 7. Technical Setup and Usage
+
+### 7.1 Installation
 1. Clone this repository
 2. Open the project in Unity (2021.3 or newer recommended)
-3. Open the starting scene (main menu)
-4. Press Play to start the game
+3. Open the Difficulty_Selection scene to start
+4. Press Play to begin
 
-## Controls
+### 7.2 Controls
 - Click on cards in your hand to discard them
-- The game will automatically draw a new card and continue play
+- The game automatically handles drawing and turn management
+- Use the restart button to play again
+
+### 7.3 Code Structure
+The main game logic is in `game_controller.cs`, with key methods:
+- `GetAICardToDiscard()`: Implements the heuristic decision-making
+- `DiscardCard()` and `DrawCard()`: Handle player actions
+- `ArrangeHand()`: Manages dynamic card layouts
+- `EndGameCheck()`: Evaluates win conditions
+
+## 8. Conclusion
+
+This project successfully demonstrates the application of heuristic search principles in a game environment. The AI opponent uses domain knowledge to make strategic decisions, providing an engaging challenge for human players while showcasing fundamental AI concepts.
+
+The implementation shows how even relatively simple heuristics can create sophisticated behavior when properly designed and integrated. The project also highlights the importance of robust software engineering practices when building interactive AI systems.
+
+Overall, this assignment helped me gain practical experience with AI algorithm implementation while creating something genuinely fun to play with!
 
 ---
 
-*Developed by Yigit Salih Emecen*
+**Repository**: [CardGame-Heuristic_Search](https://github.com/YigitSalihEmecen/CardGame-Heuristic_Search)  
+**Developed by**: Yigit Salih Emecen  
+**Course**: Artificial Intelligence  
+**May 2025**
