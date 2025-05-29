@@ -343,7 +343,7 @@ MonoBehaviour:
       m_Calls:
       - m_Target: {fileID: 1130286919}
         m_TargetAssemblyTypeName: Level_Loader, Assembly-CSharp
-        m_MethodName: LoadScene1
+        m_MethodName: LoadScene0
         m_Mode: 1
         m_Arguments:
           m_ObjectArgument: {fileID: 0}
