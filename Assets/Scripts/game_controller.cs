@@ -288,151 +288,157 @@ public class game_controller : MonoBehaviour
     {
         if (AI_hand.Count == 0) return null;
 
-        // Count cards of each suit in the AI's hand
-        Dictionary<string, List<GameObject>> handSuitCounts = new Dictionary<string, List<GameObject>>();
-        handSuitCounts["hearts"] = new List<GameObject>();
-        handSuitCounts["diamonds"] = new List<GameObject>();
-        handSuitCounts["clubs"] = new List<GameObject>();
-        handSuitCounts["spades"] = new List<GameObject>();
+        Debug.Log("=== AI DECISION MAKING PROCESS ===");
 
-        // Count cards of each suit in the discard pile
+        // STEP 1: Count cards of each suit in AI's hand
+        Dictionary<string, List<GameObject>> handSuitCards = new Dictionary<string, List<GameObject>>();
+        Dictionary<string, int> handSuitCounts = new Dictionary<string, int>();
+        
+        // Initialize all suits
+        handSuitCards["hearts"] = new List<GameObject>();
+        handSuitCards["diamonds"] = new List<GameObject>();
+        handSuitCards["clubs"] = new List<GameObject>();
+        handSuitCards["spades"] = new List<GameObject>();
+        
+        handSuitCounts["hearts"] = 0;
+        handSuitCounts["diamonds"] = 0;
+        handSuitCounts["clubs"] = 0;
+        handSuitCounts["spades"] = 0;
+
+        // Categorize AI's hand by suit
+        foreach (GameObject card in AI_hand)
+        {
+            string suit = card.GetComponent<Card>().card_suit;
+            handSuitCards[suit].Add(card);
+            handSuitCounts[suit]++;
+        }
+
+        Debug.Log("STEP 1 - AI Hand Analysis:");
+        Debug.Log("Hearts: " + handSuitCounts["hearts"] + " cards");
+        Debug.Log("Diamonds: " + handSuitCounts["diamonds"] + " cards");
+        Debug.Log("Clubs: " + handSuitCounts["clubs"] + " cards");
+        Debug.Log("Spades: " + handSuitCounts["spades"] + " cards");
+
+        // STEP 2: Count discarded cards by suit and create ordered list
         Dictionary<string, int> discardSuitCounts = new Dictionary<string, int>();
         discardSuitCounts["hearts"] = 0;
         discardSuitCounts["diamonds"] = 0;
         discardSuitCounts["clubs"] = 0;
         discardSuitCounts["spades"] = 0;
 
-        // Categorize AI's hand by suit
-        foreach (GameObject card in AI_hand)
-        {
-            string suit = card.GetComponent<Card>().card_suit;
-            handSuitCounts[suit].Add(card);
-            Debug.Log("AI Hand - Card: " + card.name + " with suit: " + suit);
-        }
-
-        // Count suits in the discard pile
         foreach (GameObject card in discard_pile)
         {
             string suit = card.GetComponent<Card>().card_suit;
             discardSuitCounts[suit]++;
-            Debug.Log("Discard pile - Card with suit: " + suit);
         }
 
-        // Calculate potential for each suit and find the least discarded suit (which player might be collecting)
-        // Strategy: Avoid the least discarded suit and prioritize the second least discarded suit
-        
-        // First, find the suit with the fewest discards (likely what player is collecting)
-        string leastDiscardedSuit = "";
-        int minDiscards = int.MaxValue;
-        
-        foreach (var suit in discardSuitCounts.Keys)
+        // Create ordered list from least discarded to most discarded
+        List<KeyValuePair<string, int>> discardOrder = new List<KeyValuePair<string, int>>();
+        foreach (var pair in discardSuitCounts)
         {
-            if (discardSuitCounts[suit] < minDiscards)
+            discardOrder.Add(pair);
+        }
+        discardOrder.Sort((x, y) => x.Value.CompareTo(y.Value)); // Sort by discard count (ascending)
+
+        Debug.Log("STEP 2 - Discard Pile Analysis (least to most discarded):");
+        for (int i = 0; i < discardOrder.Count; i++)
+        {
+            Debug.Log((i + 1) + ". " + discardOrder[i].Key + ": " + discardOrder[i].Value + " discarded");
+        }
+
+        // STEP 3: Find suit with least amount of cards in hand
+        List<string> suitsWithLeastCards = new List<string>();
+        int minCardsInHand = int.MaxValue;
+
+        // Find minimum number of cards in hand (only count suits we actually have)
+        foreach (var pair in handSuitCounts)
+        {
+            if (pair.Value > 0 && pair.Value < minCardsInHand)
             {
-                minDiscards = discardSuitCounts[suit];
-                leastDiscardedSuit = suit;
+                minCardsInHand = pair.Value;
             }
         }
-        
-        Debug.Log("Least discarded suit (likely player target): " + leastDiscardedSuit + " with " + minDiscards + " discards");
 
-        // Calculate potential for each suit, but penalize the least discarded suit heavily
-        Dictionary<string, float> suitPotential = new Dictionary<string, float>();
-
-        foreach (var suit in handSuitCounts.Keys)
+        // Find all suits with this minimum count
+        foreach (var pair in handSuitCounts)
         {
-            // Skip suits that aren't in our hand
-            if (handSuitCounts[suit].Count == 0) continue;
-
-            int totalCardsOfSuitDiscarded = discardSuitCounts[suit];
-            float potential;
-            
-            // Special handling for the least discarded suit - heavily penalize it
-            if (suit == leastDiscardedSuit)
+            if (pair.Value == minCardsInHand && pair.Value > 0)
             {
-                // Make this suit very unattractive to collect (but not impossible)
-                potential = 0.1f * handSuitCounts[suit].Count;
-                Debug.Log("Penalizing least discarded suit: " + suit + " (likely player's target)");
+                suitsWithLeastCards.Add(pair.Key);
+            }
+        }
+
+        Debug.Log("STEP 3 - Suits with least cards in hand (" + minCardsInHand + " cards):");
+        foreach (string suit in suitsWithLeastCards)
+        {
+            Debug.Log("- " + suit);
+        }
+
+        // STEP 4: Choose which suit to discard from
+        string suitToDiscardFrom = "";
+
+        if (suitsWithLeastCards.Count == 1)
+        {
+            // Only one suit has the minimum cards, choose it
+            suitToDiscardFrom = suitsWithLeastCards[0];
+            Debug.Log("STEP 4 - Decision: Only one suit with least cards, choosing: " + suitToDiscardFrom);
+        }
+        else if (suitsWithLeastCards.Count > 1)
+        {
+            // Multiple suits have same minimum cards, choose the most discarded one among them
+            Debug.Log("STEP 4 - Multiple suits tied, checking discard rates...");
+            
+            string mostDiscardedAmongTied = "";
+            int highestDiscardCount = -1;
+            
+            foreach (string suit in suitsWithLeastCards)
+            {
+                int discardCount = discardSuitCounts[suit];
+                Debug.Log("- " + suit + " has " + discardCount + " discards");
+                
+                if (discardCount > highestDiscardCount)
+                {
+                    highestDiscardCount = discardCount;
+                    mostDiscardedAmongTied = suit;
+                }
+            }
+
+            // Check if there are still ties in discard count
+            List<string> tiedInDiscards = new List<string>();
+            foreach (string suit in suitsWithLeastCards)
+            {
+                if (discardSuitCounts[suit] == highestDiscardCount)
+                {
+                    tiedInDiscards.Add(suit);
+                }
+            }
+
+            if (tiedInDiscards.Count == 1)
+            {
+                suitToDiscardFrom = mostDiscardedAmongTied;
+                Debug.Log("STEP 4 - Decision: Choosing most discarded among tied suits: " + suitToDiscardFrom);
             }
             else
             {
-                // Normal calculation for other suits
-                if (totalCardsOfSuitDiscarded > 0)
-                {
-                    potential = 1.0f - (totalCardsOfSuitDiscarded / 13.0f);
-                }
-                else
-                {
-                    // If this isn't the least discarded suit but has 0 discards, give it good potential
-                    potential = 0.9f; // Slightly less than max to prefer suits with some but few discards
-                }
-                
-                // Adjust potential based on how many cards of this suit we have
-                potential *= handSuitCounts[suit].Count;
-            }
-            
-            suitPotential[suit] = potential;
-            Debug.Log("Suit: " + suit + " has " + handSuitCounts[suit].Count + " cards in hand, " +
-                      totalCardsOfSuitDiscarded + " cards in discard, potential score: " + potential);
-        }
-
-        // Find the suit with the highest potential (best suit to keep)
-        string bestSuit = "";
-        float bestPotential = float.MinValue;
-
-        foreach (var suitPair in suitPotential)
-        {
-            if (suitPair.Value > bestPotential && handSuitCounts[suitPair.Key].Count > 0)
-            {
-                bestPotential = suitPair.Value;
-                bestSuit = suitPair.Key;
-                Debug.Log("New best suit to keep: " + bestSuit + " with potential: " + bestPotential);
+                // Still tied, choose randomly
+                int randomIndex = Random.Range(0, tiedInDiscards.Count);
+                suitToDiscardFrom = tiedInDiscards[randomIndex];
+                Debug.Log("STEP 4 - Decision: Still tied in discards, choosing randomly: " + suitToDiscardFrom);
             }
         }
 
-        // Now find the worst suit to discard from (avoid the best suit)
-        string worstSuit = "";
-        float worstPotential = float.MaxValue;
-
-        foreach (var suitPair in suitPotential)
+        // STEP 5: Return a card from the chosen suit
+        if (!string.IsNullOrEmpty(suitToDiscardFrom) && handSuitCards[suitToDiscardFrom].Count > 0)
         {
-            if (suitPair.Value < worstPotential && handSuitCounts[suitPair.Key].Count > 0)
-            {
-                worstPotential = suitPair.Value;
-                worstSuit = suitPair.Key;
-                Debug.Log("Worst suit to keep (will discard from): " + worstSuit + " with potential: " + worstPotential);
-            }
+            GameObject cardToDiscard = handSuitCards[suitToDiscardFrom][0];
+            Debug.Log("FINAL DECISION: Discarding " + cardToDiscard.name + " from suit: " + suitToDiscardFrom);
+            Debug.Log("=== END AI DECISION PROCESS ===");
+            return cardToDiscard;
         }
 
-        // If we found the worst suit to discard from, discard a card of that suit
-        if (!string.IsNullOrEmpty(worstSuit) && handSuitCounts[worstSuit].Count > 0)
-        {
-            Debug.Log("AI Strategy: Discarding card from worst potential suit: " + worstSuit + 
-                     " (avoiding player's likely target: " + leastDiscardedSuit + ")");
-            return handSuitCounts[worstSuit][0];
-        }
-
-        // Fallback to the old strategy: find the suit with least cards in hand
-        string leastSuit = "";
-        int minCount = int.MaxValue;
-
-        foreach (var suitPair in handSuitCounts)
-        {
-            if (suitPair.Value.Count > 0 && suitPair.Value.Count < minCount)
-            {
-                minCount = suitPair.Value.Count;
-                leastSuit = suitPair.Key;
-            }
-        }
-
-        if (!string.IsNullOrEmpty(leastSuit) && handSuitCounts[leastSuit].Count > 0)
-        {
-            Debug.Log("Fallback to least cards strategy: Discarding from least suit: " + leastSuit);
-            return handSuitCounts[leastSuit][0];
-        }
-
-        // Ultimate fallback: just return the first card in the hand
-        Debug.Log("Using ultimate fallback - discarding first card in hand");
+        // Ultimate fallback (should never reach here with proper logic)
+        Debug.Log("ERROR: Fallback triggered - discarding first card in hand");
+        Debug.Log("=== END AI DECISION PROCESS ===");
         return AI_hand[0];
     }
 
