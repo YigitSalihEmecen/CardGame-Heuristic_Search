@@ -318,9 +318,25 @@ public class game_controller : MonoBehaviour
             Debug.Log("Discard pile - Card with suit: " + suit);
         }
 
-        // Calculate potential for each suit based on how many are in the discard pile
-        // We'll calculate a score for each suit where:
-        // Higher score = better to keep (fewer cards in discard pile = more likely to get this suit)
+        // Calculate potential for each suit and find the least discarded suit (which player might be collecting)
+        // Strategy: Avoid the least discarded suit and prioritize the second least discarded suit
+        
+        // First, find the suit with the fewest discards (likely what player is collecting)
+        string leastDiscardedSuit = "";
+        int minDiscards = int.MaxValue;
+        
+        foreach (var suit in discardSuitCounts.Keys)
+        {
+            if (discardSuitCounts[suit] < minDiscards)
+            {
+                minDiscards = discardSuitCounts[suit];
+                leastDiscardedSuit = suit;
+            }
+        }
+        
+        Debug.Log("Least discarded suit (likely player target): " + leastDiscardedSuit + " with " + minDiscards + " discards");
+
+        // Calculate potential for each suit, but penalize the least discarded suit heavily
         Dictionary<string, float> suitPotential = new Dictionary<string, float>();
 
         foreach (var suit in handSuitCounts.Keys)
@@ -328,37 +344,53 @@ public class game_controller : MonoBehaviour
             // Skip suits that aren't in our hand
             if (handSuitCounts[suit].Count == 0) continue;
 
-            // Calculate a score based on how many cards of this suit are NOT discarded
-            // Lower number of discards = higher potential
             int totalCardsOfSuitDiscarded = discardSuitCounts[suit];
-            
-            // Normalize to a 0-1 score (0 = worst, 1 = best)
-            // We invert the logic because suits with more discards should have lower potential
             float potential;
             
-            // If all 13 cards of a suit are in discard, potential is 0
-            // If no cards are discarded, potential is 1
-            if (totalCardsOfSuitDiscarded > 0)
+            // Special handling for the least discarded suit - heavily penalize it
+            if (suit == leastDiscardedSuit)
             {
-                // More discards = lower potential
-                potential = 1.0f - (totalCardsOfSuitDiscarded / 13.0f);
+                // Make this suit very unattractive to collect (but not impossible)
+                potential = 0.1f * handSuitCounts[suit].Count;
+                Debug.Log("Penalizing least discarded suit: " + suit + " (likely player's target)");
             }
             else
             {
-                // No discards = highest potential
-                potential = 1.0f;
+                // Normal calculation for other suits
+                if (totalCardsOfSuitDiscarded > 0)
+                {
+                    potential = 1.0f - (totalCardsOfSuitDiscarded / 13.0f);
+                }
+                else
+                {
+                    // If this isn't the least discarded suit but has 0 discards, give it good potential
+                    potential = 0.9f; // Slightly less than max to prefer suits with some but few discards
+                }
+                
+                // Adjust potential based on how many cards of this suit we have
+                potential *= handSuitCounts[suit].Count;
             }
-            
-            // Adjust potential based on how many cards of this suit we have
-            // More cards in hand = better potential
-            potential *= handSuitCounts[suit].Count;
             
             suitPotential[suit] = potential;
             Debug.Log("Suit: " + suit + " has " + handSuitCounts[suit].Count + " cards in hand, " +
                       totalCardsOfSuitDiscarded + " cards in discard, potential score: " + potential);
         }
 
-        // Find the suit with the lowest potential (worst suit to keep)
+        // Find the suit with the highest potential (best suit to keep)
+        string bestSuit = "";
+        float bestPotential = float.MinValue;
+
+        foreach (var suitPair in suitPotential)
+        {
+            if (suitPair.Value > bestPotential && handSuitCounts[suitPair.Key].Count > 0)
+            {
+                bestPotential = suitPair.Value;
+                bestSuit = suitPair.Key;
+                Debug.Log("New best suit to keep: " + bestSuit + " with potential: " + bestPotential);
+            }
+        }
+
+        // Now find the worst suit to discard from (avoid the best suit)
         string worstSuit = "";
         float worstPotential = float.MaxValue;
 
@@ -368,14 +400,15 @@ public class game_controller : MonoBehaviour
             {
                 worstPotential = suitPair.Value;
                 worstSuit = suitPair.Key;
-                Debug.Log("New worst suit to keep: " + worstSuit + " with potential: " + worstPotential);
+                Debug.Log("Worst suit to keep (will discard from): " + worstSuit + " with potential: " + worstPotential);
             }
         }
 
-        // If we found the worst suit to keep, discard a card of that suit
+        // If we found the worst suit to discard from, discard a card of that suit
         if (!string.IsNullOrEmpty(worstSuit) && handSuitCounts[worstSuit].Count > 0)
         {
-            Debug.Log("AI Strategy: Discarding card from worst potential suit: " + worstSuit);
+            Debug.Log("AI Strategy: Discarding card from worst potential suit: " + worstSuit + 
+                     " (avoiding player's likely target: " + leastDiscardedSuit + ")");
             return handSuitCounts[worstSuit][0];
         }
 
