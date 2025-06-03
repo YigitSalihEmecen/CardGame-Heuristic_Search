@@ -1,7 +1,7 @@
 # Heuristic Search in Card Games: An AI Implementation Study
 
 **Course:** Artificial Intelligence  
-**Student:** Yigit Salih Emecen & Samil Mirza Ozavar 
+**Student:** Yigit Salih Emecen & Samil Mirza Ozavar   
 **Topic:** Heuristic Search Card Game  
 **Date:** May 29, 2025  
 
